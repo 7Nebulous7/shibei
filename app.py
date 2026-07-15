@@ -1506,10 +1506,8 @@ def index():
 #  启动
 # ============================================================
 if __name__ == "__main__":
-    init_db()
-    print("=" * 56)
-    print("  🐚 拾贝 v1.0")
-    print("  默认账号: admin / admin123")
-    print("  访问地址: http://127.0.0.1:5000")
-    print("=" * 56)
     app.run(debug=True, host="127.0.0.1", port=5000, threaded=True)
+
+
+# 生产环境启动时初始化数据库（gunicorn 加载 app 时执行）
+init_db()
