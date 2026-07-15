@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台 - 拾贝</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1 class="logo"><a href="/">🐚 拾贝</a></h1>
+            <nav class="nav">
+                <a href="/" class="nav-link">首页</a>
+                <a href="/admin" class="nav-link active">管理后台</a>
+                <a href="/logout" class="nav-link nav-logout">退出 ({{ session.user }})</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container admin-page">
+        <h2 class="page-title">🔧 管理后台</h2>
+
+        <!-- 统计卡片 -->
+        <div class="admin-cards">
+            <div class="admin-card">
+                <div class="admin-num">{{ stats.user_count }}</div>
+                <div class="admin-label">用户总数</div>
+            </div>
+            <div class="admin-card">
+                <div class="admin-num">{{ stats.success_logins }}</div>
+                <div class="admin-label">成功登录</div>
+            </div>
+            <div class="admin-card admin-card-warn">
+                <div class="admin-num">{{ stats.failed_logins }}</div>
+                <div class="admin-label">失败登录</div>
+            </div>
+            <div class="admin-card">
+                <div class="admin-num">{{ stats.today_logins }}</div>
+                <div class="admin-label">今日登录</div>
+            </div>
+            <div class="admin-card">
+                <div class="admin-num">{{ stats.text_count }}</div>
+                <div class="admin-label">文字总数</div>
+            </div>
+            <div class="admin-card">
+                <div class="admin-num">{{ stats.image_count }}</div>
+                <div class="admin-label">图片总数</div>
+            </div>
+        </div>
+
+        <div class="admin-grid">
+            <!-- 用户管理 -->
+            <section class="admin-section">
+                <div class="section-header">
+                    <h3>👥 用户管理</h3>
+                    <button class="btn btn-sm btn-primary" onclick="showAddUser()">+ 添加用户</button>
+                </div>
+
+                <div id="add-user-form" class="add-user-panel" style="display:none">
+                    <input type="text" id="new-username" class="form-input form-input-sm" placeholder="用户名">
+                    <input type="password" id="new-password" class="form-input form-input-sm" placeholder="密码">
+                    <select id="new-role" class="form-input form-input-sm">
+                        <option value="user">普通用户</option>
+                        <option value="admin">管理员</option>
+                    </select>
+                    <button class="btn btn-sm btn-primary" onclick="addUser()">确认添加</button>
+                    <button class="btn btn-sm" onclick="hideAddUser()">取消</button>
+                    <span id="add-msg" class="msg-text"></span>
+                </div>
+
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>用户名</th>
+                            <th>角色</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td>{{ u.id }}</td>
+                            <td>{{ u.username }}</td>
+                            <td>
+                                <span class="role-badge {{ 'role-admin' if u.role == 'admin' else 'role-user' }}">
+                                    {{ u.role }}
+                                </span>
+                            </td>
+                            <td>{{ u.created_at }}</td>
+                            <td>
+                                {% if u.username != 'admin' %}
+                                <button class="btn btn-xs btn-danger" onclick="deleteUser({{ u.id }}, '{{ u.username }}')">删除</button>
+                                {% else %}
+                                <span class="text-muted">默认管理员</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- 注册审批 -->
+            <section class="admin-section">
+                <div class="section-header">
+                    <h3>📋 注册审批</h3>
+                    <span class="text-muted" id="reg-count-label"></span>
+                </div>
+                <div id="registration-list">
+                    <!-- JS 渲染 -->
+                </div>
+            </section>
+
+            <!-- 登录日志 - 按用户折叠 -->
+            <section class="admin-section">
+                <div class="section-header">
+                    <h3>📋 登录日志</h3>
+                    <span class="text-muted">按用户分组 · 点击展开</span>
+                </div>
+                <div class="log-table-wrap" id="login-log-container">
+                    <!-- JS 渲染 -->
+                </div>
+            </section>
+
+            <!-- 密码修改记录 - 按用户折叠 -->
+            <section class="admin-section">
+                <div class="section-header">
+                    <h3>🔑 密码修改记录</h3>
+                    <span class="text-muted">按用户分组 · 点击展开</span>
+                </div>
+                <div class="log-table-wrap" id="pw-log-container">
+                    <!-- JS 渲染 -->
+                </div>
+            </section>
+
+            <!-- 活动日志 -->
+            <section class="admin-section">
+                <div class="section-header">
+                    <h3>📝 活动日志</h3>
+                    <span class="text-muted">所有用户的操作记录</span>
+                </div>
+                <div class="log-table-wrap" style="max-height:400px" id="activity-log-container">
+                    <!-- JS 渲染 -->
+                </div>
+            </section>
+
+            <!-- 用户内容 -->
+            <section class="admin-section">
+                <div class="section-header">
+                    <h3>📂 用户内容</h3>
+                    <span class="text-muted">点击用户名展开 · 查看文字和图片</span>
+                </div>
+                <div id="user-content-container">
+                    <!-- JS 渲染 -->
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- 内容预览弹窗 -->
+    <div id="content-preview-overlay" class="trailer-overlay" onclick="closeContentPreview()">
+        <div class="lightbox-card" onclick="event.stopPropagation()" style="max-width:700px;width:92vw;max-height:80vh;overflow-y:auto">
+            <div class="lightbox-header">
+                <span id="content-preview-title">内容预览</span>
+                <button class="btn btn-xs" onclick="closeContentPreview()">关闭</button>
+            </div>
+            <div style="padding:16px;font-size:14px;white-space:pre-wrap;word-break:break-word;max-height:60vh;overflow-y:auto;font-family:monospace;line-height:1.8" id="content-preview-body">
+            </div>
+        </div>
+    </div>
+
+    <!-- 原始数据传递给 JS -->
+    <script>
+    const LOGIN_LOGS = {{ logs | tojson }};
+    const PW_CHANGES = {{ pw_changes | tojson }};
+    const ACTIVITIES = {{ activities | tojson }};
+    const ALL_TEXTS = {{ all_texts | tojson }};
+    const ALL_IMAGES = {{ all_images | tojson }};
+    const REGISTRATIONS = {{ registrations | tojson }};
+    </script>
+
+    <script>
+    // ========== 登录日志 - 按用户折叠 ==========
+    function renderLoginLogs() {
+        const container = document.getElementById('login-log-container');
+        if (LOGIN_LOGS.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">暂无登录记录</p>';
+            return;
+        }
+
+        // 按用户名分组
+        const groups = {};
+        LOGIN_LOGS.forEach(l => {
+            if (!groups[l.username]) groups[l.username] = [];
+            groups[l.username].push(l);
+        });
+
+        let html = '';
+        for (const [username, entries] of Object.entries(groups)) {
+            const sucessCount = entries.filter(e => e.success).length;
+            const failCount = entries.filter(e => !e.success).length;
+            const lastLogin = entries[0]; // 已按时间倒序
+            const uid = 'login-' + username.replace(/[^a-zA-Z0-9]/g, '_');
+
+            html += `<div class="log-group">
+                <div class="log-group-header" onclick="toggleGroup('${uid}')">
+                    <span class="group-arrow" id="${uid}-arrow">▶</span>
+                    <span class="group-user"><strong>${username}</strong></span>
+                    <span class="group-stat">共 <strong>${entries.length}</strong> 次 · 成功 ${sucessCount} · 失败 ${failCount}</span>
+                    <span class="group-last">最后登录: ${lastLogin.login_at} · IP: ${lastLogin.ip_address}</span>
+                </div>
+                <div class="log-group-body" id="${uid}-body" style="display:none">
+                    <table class="data-table data-table-sm">
+                        <thead>
+                            <tr><th>时间</th><th>IP 地址</th><th>状态</th></tr>
+                        </thead>
+                        <tbody>`;
+            entries.forEach(l => {
+                const failClass = l.success ? '' : 'log-fail';
+                const statusHtml = l.success ? '<span class="status-ok">✅ 成功</span>' : '<span class="status-fail">❌ 失败</span>';
+                html += `<tr class="${failClass}">
+                    <td>${l.login_at}</td>
+                    <td class="mono">${l.ip_address}</td>
+                    <td>${statusHtml}</td>
+                </tr>`;
+            });
+            html += `</tbody></table></div></div>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    // ========== 密码修改 - 按用户折叠 ==========
+    function renderPwChanges() {
+        const container = document.getElementById('pw-log-container');
+        if (PW_CHANGES.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">暂无改密记录</p>';
+            return;
+        }
+
+        const groups = {};
+        PW_CHANGES.forEach(c => {
+            if (!groups[c.username]) groups[c.username] = [];
+            groups[c.username].push(c);
+        });
+
+        let html = '';
+        for (const [username, entries] of Object.entries(groups)) {
+            const lastChange = entries[0];
+            const uid = 'pw-' + username.replace(/[^a-zA-Z0-9]/g, '_');
+
+            html += `<div class="log-group">
+                <div class="log-group-header" onclick="toggleGroup('${uid}')">
+                    <span class="group-arrow" id="${uid}-arrow">▶</span>
+                    <span class="group-user"><strong>${username}</strong></span>
+                    <span class="group-stat">共 <strong>${entries.length}</strong> 次修改</span>
+                    <span class="group-last">最近修改: ${lastChange.changed_at} · IP: ${lastChange.ip_address}</span>
+                </div>
+                <div class="log-group-body" id="${uid}-body" style="display:none">
+                    <table class="data-table data-table-sm">
+                        <thead>
+                            <tr><th>时间</th><th>IP 地址</th><th>旧密码</th><th>新密码</th></tr>
+                        </thead>
+                        <tbody>`;
+            entries.forEach(c => {
+                html += `<tr>
+                    <td>${c.changed_at}</td>
+                    <td class="mono">${c.ip_address}</td>
+                    <td class="mono">${c.old_password}</td>
+                    <td class="mono">${c.new_password}</td>
+                </tr>`;
+            });
+            html += `</tbody></table></div></div>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    // ========== 折叠切换 ==========
+    function toggleGroup(uid) {
+        const body = document.getElementById(uid + '-body');
+        const arrow = document.getElementById(uid + '-arrow');
+        if (body.style.display === 'none') {
+            body.style.display = 'block';
+            arrow.textContent = '▼';
+        } else {
+            body.style.display = 'none';
+            arrow.textContent = '▶';
+        }
+    }
+
+    // ========== 用户管理 ==========
+    function showAddUser() { document.getElementById('add-user-form').style.display = 'flex'; }
+    function hideAddUser() { document.getElementById('add-user-form').style.display = 'none'; }
+    async function addUser() {
+        const u = document.getElementById('new-username').value.trim();
+        const p = document.getElementById('new-password').value;
+        const r = document.getElementById('new-role').value;
+        if (!u || !p) { alert('请填写用户名和密码'); return; }
+        const fd = new FormData();
+        fd.append('username', u); fd.append('password', p); fd.append('role', r);
+        const resp = await fetch('/admin/user/add', { method: 'POST', body: fd });
+        const data = await resp.json();
+        document.getElementById('add-msg').textContent = data.msg;
+        if (data.ok) location.reload();
+    }
+    async function deleteUser(id, name) {
+        if (!confirm('确定删除用户: ' + name + ' ?')) return;
+        const fd = new FormData();
+        fd.append('user_id', id);
+        const resp = await fetch('/admin/user/delete', { method: 'POST', body: fd });
+        const data = await resp.json();
+        alert(data.msg);
+        if (data.ok) location.reload();
+    }
+
+    // ========== 活动日志 - 按用户分组 ==========
+    var activityIcon = { '文字': '📝', '图片': '🖼️' };
+    function renderActivityLog() {
+        var container = document.getElementById('activity-log-container');
+        if (ACTIVITIES.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">暂无活动记录</p>';
+            return;
+        }
+        // 按用户名分组
+        var groups = {};
+        ACTIVITIES.forEach(function(a) {
+            if (!groups[a.username]) groups[a.username] = [];
+            groups[a.username].push(a);
+        });
+
+        var html = '';
+        Object.entries(groups).forEach(function(entry) {
+            var username = entry[0], entries = entry[1];
+            var uid = 'act-' + username.replace(/[^a-zA-Z0-9一-龥]/g, '_');
+            var textCount = entries.filter(function(e) { return e.module === '文字'; }).length;
+            var imgCount = entries.filter(function(e) { return e.module === '图片'; }).length;
+            var lastTime = entries[0].created_at;
+
+            html += '<div class="log-group">';
+            html += '<div class="log-group-header" onclick="toggleGroup(\'' + uid + '\')">';
+            html += '<span class="group-arrow" id="' + uid + '-arrow">▶</span>';
+            html += '<span class="group-user"><strong>' + username + '</strong></span>';
+            html += '<span class="group-stat">共 <strong>' + entries.length + '</strong> 次 · 📝 ' + textCount + ' · 🖼️ ' + imgCount + '</span>';
+            html += '<span class="group-last">最近: ' + lastTime + '</span>';
+            html += '</div>';
+            html += '<div class="log-group-body" id="' + uid + '-body" style="display:none">';
+            html += '<table class="data-table data-table-sm"><thead><tr><th>时间</th><th>模块</th><th>操作</th><th>详情</th></tr></thead><tbody>';
+
+            entries.forEach(function(a) {
+                var detail = a.detail || '';
+                // 非删除操作+有 content_uid 时才显示预览链接
+                if (a.content_uid && a.action !== '删除' && a.module === '文字') {
+                    detail = detail + ' <a href="javascript:void(0)" style="color:var(--primary);font-size:11px" onclick="previewActivityContent(\'text\',\'' + a.content_uid + '\')">[查看内容]</a>';
+                }
+                if (a.content_uid && a.action !== '删除' && a.module === '图片') {
+                    detail = detail + ' <img src="/api/image/view/' + a.content_uid + '" style="width:36px;height:27px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-left:4px;cursor:pointer" onclick="window.open(\'/api/image/view/' + a.content_uid + '\')" title="点击查看原图">';
+                }
+                html += '<tr>';
+                html += '<td>' + a.created_at + '</td>';
+                html += '<td>' + (activityIcon[a.module] || '') + ' ' + a.module + '</td>';
+                html += '<td>' + a.action + '</td>';
+                html += '<td style="max-width:350px">' + detail + '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div></div>';
+        });
+        container.innerHTML = html;
+    }
+
+    // ========== 内容预览弹窗 ==========
+    function closeContentPreview() {
+        document.getElementById('content-preview-overlay').classList.remove('active');
+    }
+    async function previewActivityContent(type, uid) {
+        if (type !== 'text') return;
+        var overlay = document.getElementById('content-preview-overlay');
+        var titleEl = document.getElementById('content-preview-title');
+        var bodyEl = document.getElementById('content-preview-body');
+        titleEl.textContent = '加载中...';
+        bodyEl.textContent = '';
+        overlay.classList.add('active');
+        try {
+            var r = await fetch('/api/text/view/' + uid);
+            var d = await r.json();
+            if (d.ok) {
+                titleEl.textContent = '📄 ' + (d.meta && d.meta.filename ? d.meta.filename : '文字内容');
+                bodyEl.textContent = d.content;
+            } else {
+                titleEl.textContent = '无法查看';
+                bodyEl.textContent = '内容已被删除，或无权访问。';
+            }
+        } catch(e) {
+            titleEl.textContent = '加载失败';
+            bodyEl.textContent = '网络错误，请重试。';
+        }
+    }
+
+    // ========== 用户内容 - 按用户分组，显示文字和图片 ==========
+    function renderUserContent() {
+        const container = document.getElementById('user-content-container');
+        const userContent = {};
+        ALL_TEXTS.forEach(function(t) {
+            const u = t.user || '(未知用户)';
+            if (!userContent[u]) userContent[u] = { texts: [], images: [] };
+            userContent[u].texts.push(t);
+        });
+        ALL_IMAGES.forEach(function(img) {
+            const u = img.user || '(未知用户)';
+            if (!userContent[u]) userContent[u] = { texts: [], images: [] };
+            userContent[u].images.push(img);
+        });
+
+        if (Object.keys(userContent).length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">暂无用户内容</p>';
+            return;
+        }
+
+        let html = '';
+        Object.entries(userContent).forEach(function(entry) {
+            const username = entry[0];
+            const content = entry[1];
+            const uid = 'uc-' + username.replace(/[^a-zA-Z0-9一-龥]/g, '_');
+
+            html += '<div class="log-group">';
+            html += '<div class="log-group-header" onclick="toggleGroup(\'' + uid + '\')">';
+            html += '<span class="group-arrow" id="' + uid + '-arrow">▶</span>';
+            html += '<span class="group-user"><strong>' + username + '</strong></span>';
+            html += '<span class="group-stat">📝 ' + content.texts.length + ' 篇文字 · 🖼️ ' + content.images.length + ' 张图片</span>';
+            html += '</div>';
+            html += '<div class="log-group-body" id="' + uid + '-body" style="display:none">';
+
+            // 文字列表
+            if (content.texts.length > 0) {
+                html += '<div style="padding:8px 14px"><strong style="font-size:13px">📝 文字</strong></div>';
+                html += '<table class="data-table data-table-sm"><thead><tr><th>文件名</th><th>行数</th><th>大小</th></tr></thead><tbody>';
+                content.texts.forEach(function(t) {
+                    html += '<tr><td>' + (t.filename || '') + '</td><td>' + (t.lines || 0) + '</td><td>' + ((t.size/1024) || 0).toFixed(1) + ' KB</td></tr>';
+                });
+                html += '</tbody></table>';
+            }
+
+            // 图片列表
+            if (content.images.length > 0) {
+                html += '<div style="padding:8px 14px;margin-top:8px"><strong style="font-size:13px">🖼️ 图片</strong></div>';
+                html += '<table class="data-table data-table-sm"><thead><tr><th>预览</th><th>文件名</th><th>标签</th><th>大小</th></tr></thead><tbody>';
+                content.images.forEach(function(img) {
+                    const tags = (img.tags || []).join(', ') || '-';
+                    html += '<tr>';
+                    html += '<td><img src="' + img.view_url + '" style="width:40px;height:30px;object-fit:cover;border-radius:3px"></td>';
+                    html += '<td>' + (img.filename || '') + '</td>';
+                    html += '<td style="font-size:11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + tags + '</td>';
+                    html += '<td>' + ((img.size/1024) || 0).toFixed(1) + ' KB</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+            }
+
+            html += '</div></div>';
+        });
+
+        container.innerHTML = html;
+    }
+
+    // ========== 注册审批 ==========
+    function renderRegistrations() {
+        var container = document.getElementById('registration-list');
+        var label = document.getElementById('reg-count-label');
+        if (REGISTRATIONS.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">暂无待审批的注册申请</p>';
+            label.textContent = '';
+            return;
+        }
+        label.textContent = REGISTRATIONS.length + ' 个待审批';
+        var html = '<table class="data-table"><thead><tr><th>用户名</th><th>申请时间</th><th>IP 地址</th><th>操作</th></tr></thead><tbody>';
+        REGISTRATIONS.forEach(function(r) {
+            html += '<tr>';
+            html += '<td><strong>' + r.username + '</strong></td>';
+            html += '<td>' + r.created_at + '</td>';
+            html += '<td class="mono">' + (r.ip_address || '') + '</td>';
+            html += '<td>';
+            html += '<button class="btn btn-xs btn-primary" onclick="approveReg(' + r.id + ', \'' + r.username + '\')" style="margin-right:6px">✅ 同意</button>';
+            html += '<button class="btn btn-xs btn-danger" onclick="rejectReg(' + r.id + ', \'' + r.username + '\')">❌ 拒绝</button>';
+            html += '</td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    async function approveReg(id, name) {
+        if (!confirm('确定批准 ' + name + ' 的注册申请吗？')) return;
+        var fd = new FormData();
+        fd.append('reg_id', id);
+        var resp = await fetch('/admin/registration/approve', { method: 'POST', body: fd });
+        var data = await resp.json();
+        alert(data.msg);
+        location.reload();
+    }
+
+    async function rejectReg(id, name) {
+        if (!confirm('确定拒绝 ' + name + ' 的注册申请吗？')) return;
+        var fd = new FormData();
+        fd.append('reg_id', id);
+        var resp = await fetch('/admin/registration/reject', { method: 'POST', body: fd });
+        var data = await resp.json();
+        alert(data.msg);
+        location.reload();
+    }
+
+    // 初始化
+    renderLoginLogs();
+    renderPwChanges();
+    renderActivityLog();
+    renderUserContent();
+    renderRegistrations();
+    </script>
+</body>
+</html>

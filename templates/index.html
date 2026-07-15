@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拾贝</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1 class="logo"><a href="/">🐚 拾贝</a></h1>
+            <nav class="nav">
+                <a href="/profile" class="nav-link">👤 个人中心</a>
+                {% if role == 'admin' %}
+                <a href="/admin" class="nav-link">🔧 管理后台</a>
+                {% endif %}
+                <a href="/logout" class="nav-link nav-logout">{{ session.user }} · 退出</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container main-content">
+
+        <!-- ==================== 首页：选择面板 ==================== -->
+        <div id="panel-home">
+            <div class="home-welcome">
+                <h2>欢迎使用拾贝</h2>
+                <p class="text-muted">请选择你要进入的板块</p>
+            </div>
+            <div class="home-cards">
+                <div class="home-card home-card-ready" onclick="switchTo('text')">
+                    <div class="home-card-icon">📝</div>
+                    <h3>文字</h3>
+                    <p>上传文件 · 粘贴文本 · 抓取网页 · 搜索分析</p>
+                    <span class="home-card-badge badge-ready">已上线</span>
+                </div>
+                <div class="home-card home-card-ready" onclick="switchTo('image')">
+                    <div class="home-card-icon">🖼️</div>
+                    <h3>图片</h3>
+                    <p>上传图片 · 网页抓取 · 图片墙浏览</p>
+                    <span class="home-card-badge badge-ready">已上线</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 板块一：文字 ==================== -->
+        <div class="tab-panel" id="panel-text">
+            <a class="back-link" onclick="switchTo('home')">← 返回首页</a>
+
+            <!-- 三入口 -->
+            <div class="text-entries">
+                <div class="text-entry-card" onclick="showTextPanel('upload')">
+                    <div class="text-entry-icon">📤</div>
+                    <h3>上传文件</h3>
+                    <p>上传 .txt / .md / .docx 等文本文件</p>
+                </div>
+                <div class="text-entry-card" onclick="showTextPanel('paste')">
+                    <div class="text-entry-icon">📋</div>
+                    <h3>粘贴文本</h3>
+                    <p>直接粘贴一段文字进行分析</p>
+                </div>
+                <div class="text-entry-card" onclick="showTextPanel('fetch')">
+                    <div class="text-entry-icon">🌐</div>
+                    <h3>抓取网页</h3>
+                    <p>输入 URL 自动提取网页正文</p>
+                </div>
+            </div>
+
+            <!-- 已保存列表 -->
+            <div class="text-saved">
+                <div class="section-header">
+                    <h3>📄 已存储的文本</h3>
+                    <button class="btn btn-sm" onclick="loadTextList()">🔄 刷新</button>
+                </div>
+                <div id="text-list" class="text-list"></div>
+            </div>
+
+            <!-- 上传面板 -->
+            <div id="text-upload-panel" class="text-work-panel" style="display:none">
+                <a class="back-link" onclick="hideAllTextPanels()">← 返回</a>
+                <h3>📤 上传文件</h3>
+                <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
+                    <div class="upload-icon">📁</div>
+                    <p>点击选择文件或拖放至此</p>
+                    <small>.txt .md .docx .csv .json 等</small>
+                    <input type="file" id="file-input" onchange="handleUpload()" accept=".txt,.md,.docx,.csv,.json,.html,.log,.xml">
+                </div>
+                <div id="upload-status"></div>
+            </div>
+
+            <!-- 粘贴面板 -->
+            <div id="text-paste-panel" class="text-work-panel" style="display:none">
+                <a class="back-link" onclick="hideAllTextPanels()">← 返回</a>
+                <h3>📋 粘贴文本</h3>
+                <input type="text" class="search-input" id="paste-title" placeholder="标题（可选）" style="margin-bottom:10px">
+                <textarea id="paste-content" class="text-textarea" placeholder="在此粘贴文字内容..."></textarea>
+                <button class="btn btn-search" onclick="handlePaste()" style="margin-top:10px">提交分析</button>
+                <div id="paste-status"></div>
+            </div>
+
+            <!-- 抓取面板 -->
+            <div id="text-fetch-panel" class="text-work-panel" style="display:none">
+                <a class="back-link" onclick="hideAllTextPanels()">← 返回</a>
+                <h3>🌐 抓取网页</h3>
+                <div class="search-form" style="max-width:100%">
+                    <input type="text" id="fetch-url" class="search-input" placeholder="输入网页 URL，如 https://example.com/article" autocomplete="off">
+                    <button class="btn btn-search" onclick="handleFetch()">抓取</button>
+                </div>
+                <div id="fetch-status"></div>
+            </div>
+
+            <!-- 查看器 + 搜索 -->
+            <div id="text-viewer" class="text-work-panel" style="display:none">
+                <a class="back-link" onclick="hideAllTextPanels()">← 返回</a>
+
+                <div class="text-viewer-header">
+                    <h3 id="viewer-title">📄 文本内容</h3>
+                    <div class="text-viewer-actions">
+                        <button class="btn btn-sm btn-danger" id="btn-delete-text" onclick="handleDeleteText()">🗑 删除</button>
+                    </div>
+                </div>
+
+                <div class="text-search-box">
+                    <input type="text" id="text-search-input" class="search-input" placeholder="输入关键词搜索..." autocomplete="off">
+                    <label class="whole-word-label" title="搜 'a' 不会匹配 'again' 里的 'a'（仅英文生效）">
+                        <input type="checkbox" id="whole-word-check" checked onchange="doTextSearch()"> 英文全词
+                    </label>
+                    <label class="whole-word-label" title="直引号/弯引号/破折号自动等价">
+                        <input type="checkbox" id="smart-punct-check" checked onchange="doTextSearch()"> 智能标点
+                    </label>
+                    <button class="btn btn-search" onclick="doTextSearch()">🔍 搜索</button>
+                </div>
+                <div id="text-search-info" class="search-status-bar" style="display:none"></div>
+
+                <div class="text-content-wrap">
+                    <div id="text-content-display" class="text-content-pre"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 板块二：图片 ==================== -->
+        <div class="tab-panel" id="panel-image">
+            <a class="back-link" onclick="switchTo('home')">← 返回首页</a>
+
+            <!-- 获取图片 -->
+            <div class="img-section-title" id="img-section-acquire">📥 获取图片</div>
+            <div class="img-cards-row" id="img-entries">
+                <div class="text-entry-card" onclick="showImgPanel('upload')">
+                    <div class="text-entry-icon">📤</div>
+                    <h3>上传图片</h3>
+                    <p>上传 jpg/png/webp/gif 等本地图片</p>
+                </div>
+                <div class="text-entry-card" onclick="showImgPanel('fetch')">
+                    <div class="text-entry-icon">🌐</div>
+                    <h3>网页抓取</h3>
+                    <p>输入 URL 提取页面图片，勾选后确认放入图片墙</p>
+                </div>
+                <div class="text-entry-card" onclick="showImgPanel('link')">
+                    <div class="text-entry-icon">🔗</div>
+                    <h3>链接导入</h3>
+                    <p>粘贴图片直链 URL，直接下载到图片墙</p>
+                </div>
+            </div>
+
+            <!-- 浏览管理 -->
+            <div class="img-section-title" id="img-section-browse">🗂️ 浏览管理</div>
+            <div class="img-cards-row" id="img-browse-entries">
+                <div class="text-entry-card" onclick="showImgPanel('gallery')">
+                    <div class="text-entry-icon">🖼️</div>
+                    <h3>图片墙</h3>
+                    <p>浏览、下载、管理所有已存储的图片</p>
+                </div>
+            </div>
+
+            <!-- 更多工具 -->
+            <div class="img-section-title" id="img-tools-title">🔧 更多工具</div>
+            <div class="img-cards-row" id="img-tools-row">
+                <div class="text-entry-card" onclick="showImgPanel('search')">
+                    <div class="text-entry-icon">🔍</div>
+                    <h3>搜图引擎</h3>
+                    <p>输入关键词从百度搜图，勾选批量导入图片墙</p>
+                </div>
+                <div class="text-entry-card" onclick="showImgPanel('tags')">
+                    <div class="text-entry-icon">🏷️</div>
+                    <h3>标签管理</h3>
+                    <p>给图片打标签、按标签筛选查找</p>
+                </div>
+                <div class="text-entry-card" onclick="showImgPanel('stats')">
+                    <div class="text-entry-icon">📊</div>
+                    <h3>占用统计</h3>
+                    <p>查看图片总数、总大小和格式分布</p>
+                </div>
+            </div>
+
+            <!-- ===== 上传面板 ===== -->
+            <div id="img-upload-panel" class="text-work-panel" style="display:none">
+                <a class="back-link" onclick="hideImgPanels()">← 返回</a>
+                <h3>📤 上传图片</h3>
+                <div class="upload-area" onclick="document.getElementById('img-file-input').click()">
+                    <div class="upload-icon">🖼️</div>
+                    <p>点击选择图片</p>
+                    <small>支持 jpg / png / webp / gif / bmp / svg · 最大 20MB</small>
+                    <input type="file" id="img-file-input" onchange="handleImgUpload()" accept="image/*" multiple>
+                </div>
+                <div id="img-upload-status"></div>
+            </div>
+
+            <!-- ===== 抓取面板 ===== -->
+            <div id="img-fetch-panel" class="text-work-panel" style="display:none">
+                <a class="back-link" onclick="hideImgPanels()">← 返回</a>
+                <h3>🌐 抓取网页图片</h3>
+                <div class="search-form" style="max-width:100%">
+                    <input type="text" id="img-fetch-url" class="search-input" placeholder="输入网页 URL，如 https://example.com" autocomplete="off">
+                    <button class="btn btn-search" onclick="handleImgFetch()">抓取</button>
+                </div>
+                <div id="img-fetch-status"></div>
+                <div id="img-fetch-toolbar" style="display:none;margin:10px 0;align-items:center;gap:8px;flex-wrap:wrap">
+                    <button class="btn btn-sm" onclick="toggleAllFetchImages()">☑ 全选/取消</button>
+                    <button class="btn btn-sm btn-primary" onclick="batchSaveFetchImages()">📥 确认放入图片墙 (<span id="fetch-selected-count">0</span>)</button>
+                </div>
+                <div id="img-fetch-results" class="img-fetch-grid"></div>
+            </div>
+
+            <!-- ===== 链接导入面板 ===== -->
+            <div id="img-link-panel" class="text-work-panel" style="display:none">
+                <a class="back-link" onclick="hideImgPanels()">← 返回</a>
+                <h3>🔗 链接导入</h3>
+                <div class="search-form" style="max-width:100%">
+                    <input type="text" id="img-link-url" class="search-input" placeholder="粘贴图片直链，如 https://example.com/image.jpg" autocomplete="off">
+                    <button class="btn btn-search" onclick="handleImgLink()">导入</button>
+                </div>
+                <small class="text-muted" style="display:block;margin-top:6px">支持 jpg / png / webp / gif / bmp / svg 格式，单张最大 20MB</small>
+                <div id="img-link-status"></div>
+            </div>
+
+            <!-- ===== 图片墙面板 ===== -->
+            <div id="img-gallery-panel" class="text-work-panel" style="display:none">
+                <a class="back-link" onclick="hideImgPanels()">← 返回</a>
+                <div class="section-header">
+                    <h3>🖼️ 图片墙</h3>
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <button class="btn btn-sm" onclick="toggleAllGalleryImages()">☑ 全选/取消</button>
+                        <button class="btn btn-sm btn-danger" onclick="batchDeleteGalleryImages()">🗑 批量删除 (<span id="gallery-selected-count">0</span>)</button>
+                        <button class="btn btn-sm" id="gallery-refresh-btn" onclick="refreshGallery()">🔄 刷新</button>
+                        <button class="btn btn-sm btn-primary" id="gallery-zip-btn" onclick="handleZipDownload()">📥 打包下载</button>
+                    </div>
+                </div>
+                <div id="img-gallery-grid" class="img-gallery-grid"></div>
+            </div>
+
+            <!-- ===== 搜图引擎面板 ===== -->
+            <div id="img-search-panel" class="text-work-panel" style="display:none">
+                <a class="back-link" onclick="hideImgPanels()">← 返回</a>
+                <h3>🔍 搜图引擎</h3>
+                <div class="search-form" style="max-width:100%">
+                    <input type="text" id="img-search-keyword" class="search-input" placeholder="输入关键词，如 山水画、猫咪..." autocomplete="off">
+                    <button class="btn btn-search" onclick="handleImgSearch()">搜图</button>
+                </div>
+                <small class="text-muted" style="display:block;margin-top:6px">数据来源：百度图片 · 搜到的图片勾选后可批量导入图片墙</small>
+                <div id="img-search-status"></div>
+                <div id="img-search-toolbar" style="display:none;margin:10px 0;align-items:center;gap:8px;flex-wrap:wrap">
+                    <button class="btn btn-sm" onclick="toggleAllSearchImages()">☑ 全选/取消</button>
+                    <button class="btn btn-sm btn-primary" onclick="batchSaveSearchImages()">📥 导入图片墙 (<span id="search-selected-count">0</span>)</button>
+                </div>
+                <div id="img-search-results" class="img-fetch-grid"></div>
+                <div style="text-align:center;margin-top:10px">
+                    <button class="btn btn-sm" id="search-load-more" onclick="handleImgSearch(true)" style="display:none">📥 加载更多</button>
+                </div>
+            </div>
+
+            <!-- ===== 标签管理面板 ===== -->
+            <div id="img-tags-panel" class="text-work-panel" style="display:none">
+                <a class="back-link" onclick="hideImgPanels()">← 返回</a>
+                <h3>🏷️ 标签管理</h3>
+
+                <!-- 标签操作工具栏 -->
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                    <button class="btn btn-sm btn-primary" onclick="openTagAction('add')">➕ 添加标签</button>
+                    <button class="btn btn-sm" onclick="openTagAction('rename')">✏️ 重命名</button>
+                    <button class="btn btn-sm btn-danger" onclick="openTagAction('delete')">🗑 删除标签</button>
+                </div>
+
+                <div id="img-tags-cloud" class="tags-cloud"></div>
+                <div class="section-header">
+                    <h3>📷 图片标签</h3>
+                    <button class="btn btn-sm" onclick="document.getElementById('tag-filter-input').value='';loadTagCloud();loadTagGallery()">🔄 刷新</button>
+                </div>
+                <div class="search-form" style="max-width:100%;margin-bottom:10px">
+                    <input type="text" id="tag-filter-input" class="search-input" placeholder="按标签筛选图片..." autocomplete="off" oninput="loadTagGallery(this.value)">
+                </div>
+                <div id="img-tags-gallery" class="img-gallery-grid"></div>
+            </div>
+
+            <!-- ===== 占用统计面板 ===== -->
+            <div id="img-stats-panel" class="text-work-panel" style="display:none">
+                <a class="back-link" onclick="hideImgPanels()">← 返回</a>
+                <h3>📊 占用统计</h3>
+                <div id="img-stats-content"></div>
+            </div>
+
+            <!-- ===== 灯箱：图片墙预览 ===== -->
+            <div class="trailer-overlay" id="img-lightbox" onclick="closeLightbox(event)">
+                <div class="lightbox-card" onclick="event.stopPropagation()">
+                    <div class="lightbox-header">
+                        <span id="lightbox-title">图片</span>
+                        <div>
+                            <a id="lightbox-dl" href="#" download class="btn btn-xs">💾 下载到本地</a>
+                            <button class="btn btn-xs btn-danger" id="lightbox-delete" onclick="handleImgDelete()">🗑 删除</button>
+                            <button class="btn btn-xs" onclick="closeLightbox()">✕ 关闭</button>
+                        </div>
+                    </div>
+                    <div class="lightbox-body">
+                        <img id="lightbox-img" src="" alt="">
+                    </div>
+                    <div id="lightbox-info" class="lightbox-info"></div>
+                </div>
+            </div>
+
+            <!-- ===== 灯箱：抓取预览 ===== -->
+            <div class="trailer-overlay" id="fetch-lightbox" onclick="closeFetchLightbox(event)">
+                <div class="lightbox-card" onclick="event.stopPropagation()">
+                    <div class="lightbox-header">
+                        <span id="fetch-lightbox-title">图片预览</span>
+                        <div>
+                            <button class="btn btn-xs btn-primary" id="fetch-lightbox-save" onclick="saveFetchPreviewImg()">💾 保存到图片墙</button>
+                            <button class="btn btn-xs" onclick="closeFetchLightbox()">✕ 关闭</button>
+                        </div>
+                    </div>
+                    <div class="lightbox-body">
+                        <img id="fetch-lightbox-img" src="" alt="">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== 标签编辑弹窗 ===== -->
+            <div id="tag-edit-overlay" class="trailer-overlay" onclick="closeTagEdit()">
+                <div class="lightbox-card" onclick="event.stopPropagation()" style="max-width:500px;width:90vw">
+                    <div class="lightbox-header">
+                        <span id="tag-edit-title">标签编辑</span>
+                        <button class="btn btn-xs" onclick="closeTagEdit()">关闭</button>
+                    </div>
+                    <div style="padding:16px">
+                        <div id="tag-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;min-height:24px"></div>
+                        <div style="display:flex;gap:6px;margin-bottom:10px">
+                            <input type="text" id="tag-edit-input" class="search-input" placeholder="输入新标签，回车添加" onkeydown="if(event.key==='Enter'){addTagChip();event.preventDefault()}">
+                            <button class="btn btn-sm btn-primary" onclick="addTagChip()">添加</button>
+                        </div>
+                        <div style="display:flex;gap:6px">
+                            <button class="btn btn-sm btn-primary" onclick="saveTagEdit()">保存</button>
+                            <button class="btn btn-sm" onclick="closeTagEdit()">取消</button>
+                        </div>
+                        <div id="tag-edit-msg" style="margin-top:8px;font-size:12px"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== 标签操作弹窗（添加/重命名/删除） ===== -->
+            <div id="tag-action-overlay" class="trailer-overlay" onclick="closeTagAction()">
+                <div class="lightbox-card" onclick="event.stopPropagation()" style="max-width:600px;width:92vw;max-height:85vh;overflow-y:auto">
+                    <div class="lightbox-header">
+                        <span id="tag-action-title">标签操作</span>
+                        <button class="btn btn-xs" onclick="closeTagAction()">关闭</button>
+                    </div>
+                    <div style="padding:16px">
+                        <!-- 添加标签内容 -->
+                        <div id="tag-action-add" style="display:none">
+                            <div class="form-group">
+                                <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">标签名称</label>
+                                <input type="text" id="tag-add-name" class="search-input" placeholder="输入新标签名，如 风景、人物...">
+                            </div>
+                            <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">选择要添加此标签的图片：</p>
+                            <div style="display:flex;gap:6px;margin-bottom:10px">
+                                <button class="btn btn-xs" onclick="tagActionToggleAll()">☑ 全选/取消</button>
+                                <span id="tag-action-selected" style="font-size:12px;color:var(--text-muted);align-self:center">已选 0 张</span>
+                            </div>
+                            <div id="tag-action-img-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;max-height:300px;overflow-y:auto;margin-bottom:12px"></div>
+                            <button class="btn btn-sm btn-primary" onclick="doAddTag()">确认添加</button>
+                            <span id="tag-add-msg" style="font-size:12px;margin-left:8px"></span>
+                        </div>
+                        <!-- 重命名标签内容 -->
+                        <div id="tag-action-rename" style="display:none">
+                            <div class="form-group">
+                                <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">选择要重命名的标签</label>
+                                <select id="tag-rename-old" class="search-input" style="width:100%"></select>
+                            </div>
+                            <div class="form-group">
+                                <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">新标签名</label>
+                                <input type="text" id="tag-rename-new" class="search-input" placeholder="输入新名称">
+                            </div>
+                            <button class="btn btn-sm btn-primary" onclick="doRenameTag()">确认重命名</button>
+                            <span id="tag-rename-msg" style="font-size:12px;margin-left:8px"></span>
+                        </div>
+                        <!-- 删除标签内容 -->
+                        <div id="tag-action-delete" style="display:none">
+                            <div class="form-group">
+                                <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">选择要删除的标签（会从所有图片中移除）</label>
+                                <select id="tag-delete-name" class="search-input" style="width:100%"></select>
+                            </div>
+                            <button class="btn btn-sm btn-danger" onclick="doDeleteTag()">确认删除</button>
+                            <span id="tag-delete-msg" style="font-size:12px;margin-left:8px"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toast 提示 -->
+            <div class="toast" id="img-toast"></div>
+        </div>
+
+    </main>
+
+    <footer class="footer">
+        <p>拾贝 v1.0 · 在信息海洋中拾取有价值的内容</p>
+    </footer>
+
+    <script>
+    // ==================== 全局导航 ====================
+    function switchTo(panel) {
+        document.getElementById('panel-home').style.display = 'none';
+        document.getElementById('panel-text').style.display = 'none';
+        document.getElementById('panel-image').style.display = 'none';
+
+        if (panel === 'home') {
+            document.getElementById('panel-home').style.display = 'block';
+            hideAllTextPanels();
+            loadTextList();
+        } else if (panel === 'text') {
+            // .tab-panel 有 display:none，必须用 block 覆盖
+            document.getElementById('panel-text').style.display = 'block';
+            loadTextList();
+        } else if (panel === 'image') {
+            document.getElementById('panel-image').style.display = 'block';
+            hideImgPanels();
+            loadImgGallery();
+        }
+    }
+
+    // ==================== 图片模块 ====================
+    let imgLightboxUid = null;
+    let fetchImageUrls = [];
+    let fetchPreviewUrl = '';
+    let galleryCheckVisible = false;
+
+    function showToast(msg, type) {
+        const t = document.getElementById('img-toast');
+        t.textContent = msg;
+        t.className = 'toast toast-' + (type || 'ok') + ' toast-show';
+        clearTimeout(t._timer);
+        t._timer = setTimeout(function() { t.className = 'toast'; }, 2500);
+    }
+
+    function showImgPanel(type) {
+        hideImgPanels();
+        // 隐藏分区标题和入口卡片
+        ['img-entries','img-browse-entries','img-tools-title','img-tools-row','img-section-acquire','img-section-browse'].forEach(function(id) {
+            var el = document.getElementById(id); if (el) el.style.display = 'none';
+        });
+        var panelMap = {
+            upload: 'img-upload-panel', fetch: 'img-fetch-panel', link: 'img-link-panel',
+            gallery: 'img-gallery-panel', search: 'img-search-panel', tags: 'img-tags-panel',
+            stats: 'img-stats-panel'
+        };
+        var pid = panelMap[type];
+        if (pid) { var p = document.getElementById(pid); if (p) p.style.display = 'block'; }
+        if (type === 'gallery') { galleryCheckVisible = false; loadImgGallery(); }
+        if (type === 'tags') { loadTagCloud(); loadTagGallery(); }
+        if (type === 'stats') loadImageStats();
+    }
+
+    function hideImgPanels() {
+        imgLightboxUid = null; fetchImageUrls = []; fetchPreviewUrl = ''; galleryCheckVisible = false;
+        // 隐藏所有工作面板
+        document.querySelectorAll('#panel-image .text-work-panel').forEach(function(p) { p.style.display = 'none'; });
+        // 恢复分区标题和入口卡片
+        ['img-entries','img-browse-entries','img-tools-title','img-tools-row','img-section-acquire','img-section-browse'].forEach(function(id) {
+            var el = document.getElementById(id); if (el) el.style.display = '';
+        });
+        // 清空输入和结果
+        ['img-fetch-results','img-fetch-url','img-fetch-status','img-upload-status','img-link-url','img-link-status','img-search-keyword'].forEach(function(id) {
+            var el = document.getElementById(id); if (el) { if (el.tagName === 'INPUT') el.value = ''; else el.innerHTML = ''; }
+        });
+        var ft = document.getElementById('img-fetch-toolbar'); if (ft) ft.style.display = 'none';
+        var st = document.getElementById('img-search-toolbar'); if (st) st.style.display = 'none';
+    }
+
+    async function handleImgUpload() {
+        var files = document.getElementById('img-file-input').files;
+        if (!files || files.length === 0) return;
+        var s = document.getElementById('img-upload-status');
+        s.innerHTML = '<span class="search-status-bar status-loading" style="display:block">... 正在上传 ' + files.length + ' 张图片 ...</span>';
+        var tasks = Array.from(files).map(async function(file) {
+            var fd = new FormData(); fd.append('file', file);
+            try {
+                var r = await fetch('/api/image/upload', { method: 'POST', body: fd });
+                var d = await r.json();
+                return { ok: d.ok, name: file.name, msg: d.msg || '' };
+            } catch(e) { return { ok: false, name: file.name, msg: '网络错误' }; }
+        });
+        var results = await Promise.all(tasks);
+        var ok = results.filter(function(r) { return r.ok; }).length;
+        var fail = results.length - ok;
+
+        if (fail > 0) {
+            // 有失败：不清空文件选择，方便重试；列出失败的文件
+            var failedNames = results.filter(function(r) { return !r.ok; }).map(function(r) {
+                return r.name + (r.msg ? ' — ' + r.msg : '');
+            }).join('<br>');
+            s.innerHTML = '<span class="search-status-bar status-remote" style="display:block">'
+                + '成功 ' + ok + ' 张，' + fail + ' 张失败：<br>' + failedNames
+                + '<br><small>可重新选择失败的文件再上传</small></span>';
+            if (ok > 0) loadImgGallery();
+        } else {
+            // 全部成功：清空输入并刷新
+            document.getElementById('img-file-input').value = '';
+            s.innerHTML = '';
+            showToast('成功上传 ' + ok + ' 张图片', 'ok');
+            loadImgGallery();
+        }
+    }
+
+    async function handleImgLink() {
+        var url = document.getElementById('img-link-url').value.trim();
+        if (!url) return;
+        var s = document.getElementById('img-link-status');
+        s.innerHTML = '<span class="search-status-bar status-loading" style="display:block">... 正在下载 ...</span>';
+        try {
+            var r = await fetch('/api/image/save-url', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url })
+            });
+            var d = await r.json();
+            if (d.ok) {
+                s.innerHTML = '';
+                document.getElementById('img-link-url').value = '';
+                showToast('已导入: ' + d.filename, 'ok');
+                loadImgGallery();
+            } else {
+                s.innerHTML = '<span class="search-status-bar status-remote" style="display:block">' + d.msg + '</span>';
+            }
+        } catch(e) {
+            s.innerHTML = '<span class="search-status-bar status-remote" style="display:block">导入失败</span>';
+        }
+    }
+
+    async function handleImgFetch() {
+        var url = document.getElementById('img-fetch-url').value.trim();
+        if (!url) return;
+        var s = document.getElementById('img-fetch-status');
+        var grid = document.getElementById('img-fetch-results');
+        var bar = document.getElementById('img-fetch-toolbar');
+        s.innerHTML = '<span class="search-status-bar status-loading" style="display:block">... 正在抓取 ...</span>';
+        grid.innerHTML = '';
+        bar.style.display = 'none';
+        fetchImageUrls = [];
+        try {
+            var r = await fetch('/api/image/fetch', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: url })
+            });
+            var d = await r.json();
+            if (d.ok && d.images.length > 0) {
+                fetchImageUrls = d.images.map(function(img) { return img.url; });
+                s.innerHTML = '<span class="search-status-bar status-local" style="display:block"> 找到 <strong>' + d.total + '</strong> 张图片，点击图片可预览，勾选后「确认放入图片墙」</span>';
+                grid.innerHTML = d.images.map(function(img, i) {
+                    return '<div class="img-fetch-item">' +
+                        '<input type="checkbox" class="img-fetch-check" data-url="' + img.url.replace(/"/g, '&quot;') + '" onchange="updateFetchCount()" onclick="event.stopPropagation()">' +
+                        '<div class="img-fetch-preview" onclick="openFetchLightbox(\'' + img.url.replace(/'/g, "\\'") + '\', \'' + (img.alt || '图片' + i).replace(/'/g, "\\'") + '\')" title="点击预览大图">' +
+                        '<img src="/img?url=' + encodeURIComponent(img.url) + '" loading="lazy" referrerpolicy="no-referrer">' +
+                        '<span class="img-fetch-zoom">🔍</span></div>' +
+                        '<span class="img-fetch-alt">' + (img.alt || '') + '</span></div>';
+                }).join('');
+                bar.style.display = 'flex';
+                updateFetchCount();
+            } else {
+                s.innerHTML = '<span class="search-status-bar status-remote" style="display:block"> ' + (d.msg || '未找到图片') + '</span>';
+            }
+        } catch(e) {
+            s.innerHTML = '<span class="search-status-bar status-remote" style="display:block"> 抓取失败</span>';
+        }
+    }
+
+    function updateFetchCount() {
+        var checks = document.querySelectorAll('.img-fetch-check:checked');
+        document.getElementById('fetch-selected-count').textContent = checks.length;
+    }
+
+    function openFetchLightbox(url, alt) {
+        fetchPreviewUrl = url;
+        document.getElementById('fetch-lightbox').classList.add('active');
+        var img = document.getElementById('fetch-lightbox-img');
+        img.src = '/img?url=' + encodeURIComponent(url);
+        img._zoomState = null;
+        img.style.transform = '';
+        img.style.cursor = 'zoom-in';
+        document.getElementById('fetch-lightbox-title').textContent = '预览: ' + (alt || '图片');
+        setupLightboxZoom(img);
+    }
+
+    function closeFetchLightbox(e) {
+        if (e && e.target && e.target !== document.getElementById('fetch-lightbox')) return;
+        var img = document.getElementById('fetch-lightbox-img');
+        _detachZoom(img);
+        document.getElementById('fetch-lightbox').classList.remove('active');
+        img.src = '';
+        img.style.transform = '';
+        img._zoomState = null;
+        fetchPreviewUrl = '';
+    }
+
+    async function saveFetchPreviewImg() {
+        if (!fetchPreviewUrl) return;
+        var btn = document.getElementById('fetch-lightbox-save');
+        btn.textContent = '保存中...';
+        btn.disabled = true;
+        try {
+            var r = await fetch('/api/image/save-url', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: fetchPreviewUrl })
+            });
+            var d = await r.json();
+            if (d.ok) {
+                btn.textContent = '已保存 ✓';
+                showToast('已保存到图片墙', 'ok');
+                loadImgGallery();
+            } else {
+                btn.textContent = '保存失败';
+                btn.disabled = false;
+            }
+        } catch(e) {
+            btn.textContent = '保存失败';
+            btn.disabled = false;
+        }
+    }
+
+    function toggleAllFetchImages() {
+        var checks = document.querySelectorAll('.img-fetch-check');
+        var allChecked = Array.from(checks).every(function(c) { return c.checked; });
+        checks.forEach(function(c) { c.checked = !allChecked; });
+        updateFetchCount();
+    }
+
+    async function batchSaveFetchImages() {
+        var checks = document.querySelectorAll('.img-fetch-check:checked');
+        if (checks.length === 0) { showToast('请先勾选要保存的图片', 'warn'); return; }
+        var urls = Array.from(checks).map(function(cb) { return cb.dataset.url; });
+        var toast = document.getElementById('img-toast');
+        toast.textContent = '正在保存 ' + urls.length + ' 张图片...';
+        toast.className = 'toast toast-ok toast-show';
+        try {
+            var r = await fetch('/api/image/save-batch', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ urls: urls })
+            });
+            var d = await r.json();
+            clearTimeout(toast._timer);
+            var fail = d.total - d.saved;
+            toast.className = 'toast toast-' + (fail > 0 ? 'warn' : 'ok') + ' toast-show';
+            toast.textContent = '✅ 已保存 ' + d.saved + ' 张到图片墙' + (fail > 0 ? '，' + fail + ' 张失败' : '');
+            toast._timer = setTimeout(function() { toast.className = 'toast'; }, 3500);
+            // 取消勾选成功的
+            var savedUrls = new Set(d.results.filter(function(x) { return x.ok; }).map(function(x) { return x.url; }));
+            checks.forEach(function(cb) { if (savedUrls.has(cb.dataset.url)) cb.checked = false; });
+            updateFetchCount();
+            loadImgGallery();
+        } catch(e) {
+            clearTimeout(toast._timer);
+            toast.className = 'toast toast-warn toast-show';
+            toast.textContent = '保存失败，请重试';
+            toast._timer = setTimeout(function() { toast.className = 'toast'; }, 3000);
+        }
+    }
+
+    async function loadImgGallery() {
+        var grid = document.getElementById('img-gallery-grid');
+        try {
+            var r = await fetch('/api/image/list');
+            var d = await r.json();
+            if (!d.items || d.items.length === 0) {
+                grid.innerHTML = '<p class="text-muted" style="text-align:center;padding:32px"> 暂无图片，上传或抓取一些吧</p>';
+                document.getElementById('gallery-selected-count').textContent = '0';
+                return 0;
+            }
+            grid.innerHTML = d.items.map(function(it) {
+                return '<div class="img-gallery-item">' +
+                    '<input type="checkbox" class="gallery-check" data-uid="' + it.uid + '" onchange="updateGalleryCount()" onclick="event.stopPropagation()" style="display:none">' +
+                    '<img src="/api/image/view/' + it.uid + '" loading="lazy" alt="' + (it.filename || '') + '"' +
+                    ' onclick="openLightbox(\'' + it.uid + '\', \'' + (it.filename || '').replace(/'/g, "\\'") + '\', ' + (it.size || 0) + ')">' +
+                    '<div class="img-gallery-overlay" onclick="event.stopPropagation()">' +
+                    '<span>' + (it.filename || '') + '</span>' +
+                    '<div class="img-gallery-btns">' +
+                    '<a href="/api/image/view/' + it.uid + '" download="' + (it.filename || 'image') + '" class="btn btn-xs" title="下载到本地" onclick="event.stopPropagation()">💾</a>' +
+                    '</div></div></div>';
+            }).join('');
+            if (galleryCheckVisible) {
+                document.querySelectorAll('.gallery-check').forEach(function(c) { c.style.display = ''; });
+            }
+            updateGalleryCount();
+            return d.items.length;
+        } catch(e) {
+            grid.innerHTML = '<p class="text-muted" style="text-align:center;padding:32px"> 加载失败</p>';
+            return 0;
+        }
+    }
+
+    async function refreshGallery() {
+        var btn = document.getElementById('gallery-refresh-btn');
+        btn.textContent = '⏳ 刷新中...';
+        var count = await loadImgGallery();
+        btn.textContent = '🔄 刷新';
+        showToast('✅ 已刷新，共 ' + count + ' 张图片', 'ok');
+    }
+
+    function updateGalleryCount() {
+        var checks = document.querySelectorAll('.gallery-check:checked');
+        document.getElementById('gallery-selected-count').textContent = checks.length;
+    }
+
+    function toggleAllGalleryImages() {
+        var checks = document.querySelectorAll('.gallery-check');
+        var allChecked = Array.from(checks).every(function(c) { return c.checked; });
+        checks.forEach(function(c) { c.checked = !allChecked; });
+        if (!galleryCheckVisible) {
+            galleryCheckVisible = true;
+            document.querySelectorAll('.gallery-check').forEach(function(c) { c.style.display = ''; });
+        }
+        updateGalleryCount();
+    }
+
+    async function batchDeleteGalleryImages() {
+        var checks = document.querySelectorAll('.gallery-check:checked');
+        if (checks.length === 0) {
+            galleryCheckVisible = !galleryCheckVisible;
+            document.querySelectorAll('.gallery-check').forEach(function(c) { c.style.display = galleryCheckVisible ? '' : 'none'; });
+            if (galleryCheckVisible) showToast('请勾选要删除的图片', 'warn');
+            else showToast('已隐藏复选框', 'ok');
+            return;
+        }
+        if (!confirm('确定删除选中的 ' + checks.length + ' 张图片吗？该操作不可恢复。')) return;
+        // 并行删除，所有请求同时发出
+        var tasks = Array.from(checks).map(async function(cb) {
+            try {
+                await fetch('/api/image/delete/' + cb.dataset.uid, { method: 'POST' });
+                return true;
+            } catch(e) { return false; }
+        });
+        var results = await Promise.all(tasks);
+        var ok = results.filter(Boolean).length;
+        var fail = results.length - ok;
+        showToast('已删除 ' + ok + ' 张图片', 'warn');
+        galleryCheckVisible = false;
+        loadImgGallery();
+    }
+
+    function openLightbox(uid, filename, size) {
+        imgLightboxUid = uid;
+        document.getElementById('img-lightbox').classList.add('active');
+        var img = document.getElementById('lightbox-img');
+        img.src = '/api/image/view/' + uid;
+        img._zoomState = null;
+        img.style.transform = '';
+        img.style.cursor = 'zoom-in';
+        document.getElementById('lightbox-title').textContent = filename || '图片';
+        document.getElementById('lightbox-dl').href = '/api/image/view/' + uid;
+        document.getElementById('lightbox-dl').download = filename || 'image';
+        document.getElementById('lightbox-info').textContent = '大小: ' + (size / 1024).toFixed(1) + ' KB · 滚轮缩放 · 按住拖拽 · 双击重置';
+        setupLightboxZoom(img);
+    }
+
+    function closeLightbox(e) {
+        if (e && e.target && e.target !== document.getElementById('img-lightbox')) return;
+        var img = document.getElementById('lightbox-img');
+        _detachZoom(img);
+        document.getElementById('img-lightbox').classList.remove('active');
+        img.src = '';
+        img.style.transform = '';
+        img._zoomState = null;
+        imgLightboxUid = null;
+    }
+
+    // ===== 统一的缩放+拖拽引擎 =====
+    function _detachZoom(img) {
+        if (img._onWheel) { img.removeEventListener('wheel', img._onWheel); img._onWheel = null; }
+        if (img._onDblClick) { img.removeEventListener('dblclick', img._onDblClick); img._onDblClick = null; }
+        if (img._onMouseDown) { img.removeEventListener('mousedown', img._onMouseDown); img._onMouseDown = null; }
+    }
+
+    function setupLightboxZoom(img) {
+        _detachZoom(img);
+        // 初始状态: scale=1, 不偏移
+        img._zoomState = { s: 1.0, x: 0, y: 0 };
+        img._panning = false;
+        img._panStart = { x: 0, y: 0, stateX: 0, stateY: 0 };
+        img.style.transformOrigin = '0 0';
+        img.style.transition = '';
+        img.style.cursor = 'zoom-in';
+
+        // 滚轮缩放，以鼠标位置为中心
+        img._onWheel = function(e) {
+            e.preventDefault();
+            var state = img._zoomState;
+            var rect = img.getBoundingClientRect();
+            // 鼠标在图片容器中的相对位置（0~1）
+            var mx = (e.clientX - rect.left) / rect.width;
+            var my = (e.clientY - rect.top) / rect.height;
+
+            var delta = e.deltaY < 0 ? 0.25 : -0.25;
+            var oldS = state.s;
+            var newS = Math.max(0.3, Math.min(8.0, oldS + delta * oldS)); // 按比例缩放更自然
+
+            // 缩放时保持鼠标指向的点不动
+            // 图片在容器中放缩 sx 倍: new_s = old_s, new_x = ...
+            // 鼠标位置 px = mx * container_w = (mx * container_w - state.x) * old_s / new_s 保持...
+            // 简化: 缩放中心偏移
+            state.x = mx * rect.width - (mx * rect.width - state.x) * (newS / oldS);
+            state.y = my * rect.height - (my * rect.height - state.y) * (newS / oldS);
+            state.s = newS;
+            _applyZoomState(img);
+        };
+        img.addEventListener('wheel', img._onWheel, { passive: false });
+
+        // 双击重置
+        img._onDblClick = function(e) {
+            img._zoomState = { s: 1.0, x: 0, y: 0 };
+            _applyZoomState(img);
+            img.style.cursor = 'zoom-in';
+        };
+        img.addEventListener('dblclick', img._onDblClick);
+
+        // 鼠标拖拽平移
+        img._onMouseDown = function(e) {
+            if (img._zoomState.s <= 1.01) return; // 未放大时不拖拽
+            e.preventDefault();
+            img._panning = true;
+            img._panStart = { x: e.clientX, y: e.clientY, stateX: img._zoomState.x, stateY: img._zoomState.y };
+            img.style.cursor = 'grabbing';
+            img.style.transition = 'none';
+        };
+        img.addEventListener('mousedown', img._onMouseDown);
+
+        // 全局 mouseup / mousemove（绑定在 lightbox 容器上避免失焦）
+        var lightbox = img.closest('.trailer-overlay');
+        if (lightbox && !lightbox._zoomBound) {
+            lightbox._zoomBound = true;
+            lightbox.addEventListener('mousemove', function(e) {
+                if (!img._panning) return;
+                var dx = e.clientX - img._panStart.x;
+                var dy = e.clientY - img._panStart.y;
+                img._zoomState.x = img._panStart.stateX + dx;
+                img._zoomState.y = img._panStart.stateY + dy;
+                _applyZoomState(img);
+            });
+            lightbox.addEventListener('mouseup', function(e) {
+                if (img._panning) {
+                    img._panning = false;
+                    img.style.cursor = img._zoomState.s > 1.01 ? 'grab' : 'zoom-in';
+                }
+            });
+            lightbox.addEventListener('mouseleave', function(e) {
+                if (img._panning) {
+                    img._panning = false;
+                    img.style.cursor = img._zoomState.s > 1.01 ? 'grab' : 'zoom-in';
+                }
+            });
+        }
+    }
+
+    function _applyZoomState(img) {
+        var st = img._zoomState;
+        img.style.transform = 'translate(' + st.x + 'px, ' + st.y + 'px) scale(' + st.s + ')';
+        img.style.cursor = st.s > 1.01 ? 'grab' : 'zoom-in';
+    }
+
+    function applyZoom(img, delta) {
+        var st = img._zoomState || { s: 1.0, x: 0, y: 0 };
+        st.s = Math.max(0.3, Math.min(8.0, st.s + delta));
+        img._zoomState = st;
+        _applyZoomState(img);
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (!e.ctrlKey) return;
+        var img = null;
+        if (document.getElementById('img-lightbox').classList.contains('active')) {
+            img = document.getElementById('lightbox-img');
+        } else if (document.getElementById('fetch-lightbox').classList.contains('active')) {
+            img = document.getElementById('fetch-lightbox-img');
+        }
+        if (!img || !img.src) return;
+        if (e.key === '=' || e.key === '+') {
+            e.preventDefault();
+            applyZoom(img, 0.25);
+        } else if (e.key === '-') {
+            e.preventDefault();
+            applyZoom(img, -0.25);
+        } else if (e.key === '0') {
+            e.preventDefault();
+            img._zoomState = { s: 1.0, x: 0, y: 0 };
+            _applyZoomState(img);
+        }
+    });
+
+    async function handleImgDelete() {
+        if (!imgLightboxUid || !confirm('确定删除这张图片吗？')) return;
+        await fetch('/api/image/delete/' + imgLightboxUid, { method: 'POST' });
+        closeLightbox();
+        loadImgGallery();
+        showToast('图片已删除', 'warn');
+    }
+
+    // ========== 搜图引擎 ==========
+    var searchImageUrls = [];
+    var searchPage = 0;
+    var searchKeyword = '';
+
+    async function handleImgSearch(loadMore) {
+        var kw = loadMore ? searchKeyword : document.getElementById('img-search-keyword').value.trim();
+        if (!kw) return;
+        if (!loadMore) { searchPage = 0; searchKeyword = kw; }
+        else { searchPage++; }
+        var s = document.getElementById('img-search-status');
+        var grid = document.getElementById('img-search-results');
+        var bar = document.getElementById('img-search-toolbar');
+        s.innerHTML = '<span class="search-status-bar status-loading" style="display:block">... 正在搜索 ...</span>';
+        if (!loadMore) { grid.innerHTML = ''; bar.style.display = 'none'; searchImageUrls = []; }
+        try {
+            var r = await fetch('/api/image/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword: kw, page: searchPage }) });
+            var d = await r.json();
+            if (d.ok && d.images.length > 0) {
+                var newUrls = d.images.map(function(img) { return img.url; });
+                if (loadMore) { searchImageUrls = searchImageUrls.concat(newUrls); }
+                else { searchImageUrls = newUrls; }
+                var startIdx = searchImageUrls.length - d.images.length;
+                var newHTML = d.images.map(function(img, i) {
+                    var globalIdx = startIdx + i + 1;
+                    return '<div class="img-fetch-item">' +
+                        '<input type="checkbox" class="search-check" data-url="' + img.url.replace(/"/g, '&quot;') + '" onchange="updateSearchCount()" onclick="event.stopPropagation()">' +
+                        '<div class="img-fetch-preview" onclick="openFetchLightbox(\'' + img.url.replace(/'/g, "\\'") + '\', \'搜图' + globalIdx + '\')" title="点击预览大图">' +
+                        '<img src="/img?url=' + encodeURIComponent(img.url) + '" loading="lazy" referrerpolicy="no-referrer">' +
+                        '<span class="img-fetch-zoom">+</span></div></div>';
+                }).join('');
+                grid.insertAdjacentHTML('beforeend', newHTML);
+                s.innerHTML = '<span class="search-status-bar status-local" style="display:block"> 搜索 <strong>' + kw + '</strong>，已加载 <strong>' + searchImageUrls.length + '</strong> 张，勾选后导入图片墙</span>';
+                bar.style.display = 'flex';
+                document.getElementById('search-load-more').style.display = d.images.length >= 30 ? 'inline-flex' : 'none';
+                updateSearchCount();
+            } else {
+                if (!loadMore) { s.innerHTML = '<span class="search-status-bar status-remote" style="display:block"> ' + d.msg + '</span>'; }
+                else { s.innerHTML = '<span class="search-status-bar status-local" style="display:block"> 已加载全部 <strong>' + searchImageUrls.length + '</strong> 张</span>'; }
+                document.getElementById('search-load-more').style.display = 'none';
+            }
+        } catch(e) { s.innerHTML = '<span class="search-status-bar status-remote" style="display:block"> 搜索失败</span>'; }
+    }
+
+    function updateSearchCount() {
+        document.getElementById('search-selected-count').textContent = document.querySelectorAll('.search-check:checked').length;
+    }
+
+    function toggleAllSearchImages() {
+        var checks = document.querySelectorAll('.search-check');
+        var allChecked = Array.from(checks).every(function(x) { return x.checked; });
+        checks.forEach(function(x) { x.checked = !allChecked; });
+        updateSearchCount();
+    }
+
+    async function batchSaveSearchImages() {
+        var checks = document.querySelectorAll('.search-check:checked');
+        if (checks.length === 0) { showToast('请先勾选要导入的图片', 'warn'); return; }
+        var urls = Array.from(checks).map(function(cb) { return cb.dataset.url; });
+        var toast = document.getElementById('img-toast');
+        toast.textContent = '正在导入 ' + urls.length + ' 张图片...';
+        toast.className = 'toast toast-ok toast-show';
+        try {
+            var r = await fetch('/api/image/save-batch', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ urls: urls })
+            });
+            var d = await r.json();
+            clearTimeout(toast._timer);
+            var fail = d.total - d.saved;
+            toast.className = 'toast toast-' + (fail > 0 ? 'warn' : 'ok') + ' toast-show';
+            toast.textContent = '已导入 ' + d.saved + ' 张到图片墙' + (fail > 0 ? '，' + fail + ' 张失败' : '');
+            toast._timer = setTimeout(function() { toast.className = 'toast'; }, 3500);
+            var savedUrls = new Set(d.results.filter(function(x) { return x.ok; }).map(function(x) { return x.url; }));
+            checks.forEach(function(cb) { if (savedUrls.has(cb.dataset.url)) cb.checked = false; });
+            updateSearchCount();
+            loadImgGallery();
+        } catch(e) {
+            clearTimeout(toast._timer);
+            toast.className = 'toast toast-warn toast-show';
+            toast.textContent = '导入失败，请重试';
+            toast._timer = setTimeout(function() { toast.className = 'toast'; }, 3000);
+        }
+    }
+
+    // ========== 标签管理 ==========
+    var tagEditUid = null;
+    var tagEditCurrent = [];
+
+    // HTML/JS 转义辅助
+    function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function escJs(s) { return s.replace(/\\/g,'\\\\').replace(/'/g,'\\\'').replace(/\n/g,'\\n'); }
+
+    async function loadTagCloud() {
+        var c = document.getElementById('img-tags-cloud');
+        try {
+            var r = await fetch('/api/image/tags'); var d = await r.json();
+            if (!d.tags || d.tags.length === 0) { c.innerHTML = '<p class="text-muted" style="text-align:center;padding:12px">暂无标签</p>'; return; }
+            c.innerHTML = d.tags.map(function(t) {
+                return '<span class="tag-chip-wrap">' +
+                    '<span class="tag-chip" onclick="filterByTag(\'' + escJs(t.name) + '\')">' + escHtml(t.name) + ' (' + t.count + ')</span>' +
+                    '<span class="tag-chip-del" onclick="event.stopPropagation();deleteTagGlobal(\'' + escJs(t.name) + '\')" title="删除此标签">x</span></span>';
+            }).join('');
+        } catch(e) { c.innerHTML = ''; }
+    }
+
+    async function deleteTagGlobal(tag) {
+        if (!confirm('确定删除标签 "' + tag + '" 吗？会从所有拥有该标签的图片中移除。')) return;
+        await fetch('/api/image/tag/' + encodeURIComponent(tag), { method: 'DELETE' });
+        showToast('标签 "' + tag + '" 已删除', 'warn');
+        await loadTagCloud();
+        await loadTagGallery(document.getElementById('tag-filter-input').value);
+    }
+
+    async function loadTagGallery(filter) {
+        var grid = document.getElementById('img-tags-gallery');
+        try {
+            // 一次请求拿全部图片+标签，不再逐张串行查询
+            var r = await fetch('/api/image/list?with_tags=1'); var d = await r.json();
+            if (!d.items || d.items.length === 0) { grid.innerHTML = '<p class="text-muted" style="text-align:center;padding:32px">暂无图片</p>'; return; }
+            var f = (filter || '').toLowerCase().trim();
+            var items = d.items;
+            if (f) {
+                items = d.items.filter(function(it) {
+                    return (it.tags || []).some(function(t) { return t.toLowerCase().indexOf(f) !== -1; });
+                });
+            }
+            if (items.length === 0) { grid.innerHTML = '<p class="text-muted" style="text-align:center;padding:32px">' + (f ? '没有匹配标签的图片' : '暂无图片') + '</p>'; return; }
+            grid.innerHTML = items.map(function(it) {
+                return '<div class="img-gallery-item">' +
+                    '<img src="/api/image/view/' + it.uid + '" loading="lazy" alt="' + escHtml(it.filename) + '"' +
+                    ' onclick="openLightbox(\'' + it.uid + '\', \'' + escJs(it.filename) + '\', ' + it.size + ')">' +
+                    '<div class="img-gallery-overlay" onclick="event.stopPropagation()">' +
+                    '<span>' + escHtml(it.filename) + '</span>' +
+                    '<div class="img-gallery-btns">' +
+                    '<button class="btn btn-xs" onclick="event.stopPropagation();openTagEdit(\'' + it.uid + '\', \'' + it.filename.replace(/'/g, "\\'") + '\')" title="编辑标签">🏷 编辑标签</button>' +
+                    '</div></div></div>';
+            }).join('');
+        } catch(e) { grid.innerHTML = '<p class="text-muted" style="text-align:center;padding:32px">加载失败</p>'; }
+    }
+
+    function filterByTag(tag) { document.getElementById('tag-filter-input').value = tag; loadTagGallery(tag); }
+
+    async function openTagEdit(uid, filename) {
+        tagEditUid = uid;
+        try { var r = await fetch('/api/image/tags/' + uid); var d = await r.json(); tagEditCurrent = d.tags || []; }
+        catch(e) { tagEditCurrent = []; }
+        document.getElementById('tag-edit-input').value = '';
+        document.getElementById('tag-edit-title').textContent = filename;
+        document.getElementById('tag-edit-msg').textContent = '';
+        renderTagChips();
+        document.getElementById('tag-edit-overlay').classList.add('active');
+    }
+
+    function renderTagChips() {
+        var c = document.getElementById('tag-chips');
+        c.innerHTML = tagEditCurrent.map(function(t) {
+            return '<span class="tag-chip-wrap">' +
+                '<span class="tag-chip" style="background:#e0f2fe;color:#0369a1;cursor:default">' + t + '</span>' +
+                '<span class="tag-chip-del" onclick="removeTagChip(\'' + t.replace(/'/g, "\\'") + '\')" title="删除此标签">x</span></span>';
+        }).join('');
+    }
+
+    function addTagChip() {
+        var val = document.getElementById('tag-edit-input').value.trim();
+        if (!val) return;
+        if (tagEditCurrent.indexOf(val) === -1) tagEditCurrent.push(val);
+        document.getElementById('tag-edit-input').value = '';
+        renderTagChips();
+    }
+
+    function removeTagChip(tag) {
+        tagEditCurrent = tagEditCurrent.filter(function(t) { return t !== tag; });
+        renderTagChips();
+    }
+
+    function closeTagEdit() {
+        document.getElementById('tag-edit-overlay').classList.remove('active');
+        tagEditUid = null;
+        tagEditCurrent = [];
+    }
+
+    async function saveTagEdit() {
+        if (!tagEditUid) return;
+        if (tagEditCurrent.length > 20) { showToast('最多20个标签', 'warn'); return; }
+        await fetch('/api/image/tags/' + tagEditUid, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tags: tagEditCurrent }) });
+        closeTagEdit();
+        showToast('标签已保存', 'ok');
+        // 等待云端和画廊都刷新完
+        await loadTagCloud();
+        await loadTagGallery(document.getElementById('tag-filter-input').value);
+    }
+
+    // ========== 标签操作：添加 / 重命名 / 删除 ==========
+    var tagActionMode = '';
+    var tagActionImgUids = [];
+
+    async function openTagAction(mode) {
+        tagActionMode = mode;
+        document.getElementById('tag-action-title').textContent =
+            mode === 'add' ? '➕ 添加标签' : mode === 'rename' ? '✏️ 重命名标签' : '🗑 删除标签';
+        document.getElementById('tag-action-add').style.display = mode === 'add' ? '' : 'none';
+        document.getElementById('tag-action-rename').style.display = mode === 'rename' ? '' : 'none';
+        document.getElementById('tag-action-delete').style.display = mode === 'delete' ? '' : 'none';
+        document.getElementById('tag-add-msg').textContent = '';
+        document.getElementById('tag-rename-msg').textContent = '';
+        document.getElementById('tag-delete-msg').textContent = '';
+
+        if (mode === 'add') {
+            document.getElementById('tag-add-name').value = '';
+            document.getElementById('tag-action-selected').textContent = '已选 0 张';
+            // 加载全部图片供勾选
+            try {
+                var r = await fetch('/api/image/list?with_tags=1');
+                var d = await r.json();
+                var items = d.items || [];
+                tagActionImgUids = items.map(function(it) { return it.uid; });
+                document.getElementById('tag-action-img-grid').innerHTML = items.map(function(it) {
+                    return '<div class="img-gallery-item" style="aspect-ratio:1;position:relative">' +
+                        '<input type="checkbox" class="tag-action-check" data-uid="' + it.uid + '" onchange="tagActionUpdateCount()" onclick="event.stopPropagation()">' +
+                        '<img src="/api/image/view/' + it.uid + '" loading="lazy" style="width:100%;height:100%;object-fit:cover">' +
+                        '</div>';
+                }).join('');
+                tagActionUpdateCount();
+            } catch(e) { document.getElementById('tag-action-img-grid').innerHTML = '<p class="text-muted">加载失败</p>'; }
+        }
+
+        if (mode === 'rename' || mode === 'delete') {
+            // 填充标签下拉列表
+            try {
+                var r2 = await fetch('/api/image/tags');
+                var d2 = await r2.json();
+                var opts = (d2.tags || []).map(function(t) {
+                    return '<option value="' + t.name.replace(/"/g, '&quot;') + '">' + t.name + ' (' + t.count + ' 张)</option>';
+                }).join('');
+                if (mode === 'rename') {
+                    document.getElementById('tag-rename-old').innerHTML = opts;
+                    document.getElementById('tag-rename-new').value = '';
+                } else {
+                    document.getElementById('tag-delete-name').innerHTML = opts;
+                }
+            } catch(e) {}
+        }
+
+        document.getElementById('tag-action-overlay').classList.add('active');
+    }
+
+    function closeTagAction() {
+        document.getElementById('tag-action-overlay').classList.remove('active');
+        tagActionMode = '';
+        tagActionImgUids = [];
+    }
+
+    function tagActionToggleAll() {
+        var checks = document.querySelectorAll('.tag-action-check');
+        var all = Array.from(checks).every(function(c) { return c.checked; });
+        checks.forEach(function(c) { c.checked = !all; });
+        tagActionUpdateCount();
+    }
+
+    function tagActionUpdateCount() {
+        var n = document.querySelectorAll('.tag-action-check:checked').length;
+        document.getElementById('tag-action-selected').textContent = '已选 ' + n + ' 张';
+    }
+
+    async function doAddTag() {
+        var tagName = document.getElementById('tag-add-name').value.trim();
+        if (!tagName) { document.getElementById('tag-add-msg').textContent = '请输入标签名'; return; }
+        var checks = document.querySelectorAll('.tag-action-check:checked');
+        if (checks.length === 0) { document.getElementById('tag-add-msg').textContent = '请至少选择一张图片'; return; }
+        var uids = Array.from(checks).map(function(c) { return c.dataset.uid; });
+        try {
+            var r = await fetch('/api/image/tag/bulk-add', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tag_name: tagName, uids: uids })
+            });
+            var d = await r.json();
+            if (d.ok) {
+                document.getElementById('tag-add-msg').textContent = '已添加，共 ' + d.added_to + ' 张图片';
+                document.getElementById('tag-add-msg').style.color = '#065f46';
+                document.getElementById('tag-add-name').value = '';
+            } else {
+                document.getElementById('tag-add-msg').textContent = d.msg;
+                document.getElementById('tag-add-msg').style.color = '#b91c1c';
+            }
+            loadTagCloud();
+            loadTagGallery(document.getElementById('tag-filter-input').value);
+        } catch(e) { document.getElementById('tag-add-msg').textContent = '操作失败'; }
+    }
+
+    async function doRenameTag() {
+        var oldName = document.getElementById('tag-rename-old').value;
+        var newName = document.getElementById('tag-rename-new').value.trim();
+        if (!oldName) { document.getElementById('tag-rename-msg').textContent = '请选择要重命名的标签'; return; }
+        if (!newName) { document.getElementById('tag-rename-msg').textContent = '请输入新标签名'; return; }
+        if (oldName === newName) { document.getElementById('tag-rename-msg').textContent = '新旧名称相同'; return; }
+        try {
+            var r = await fetch('/api/image/tag/rename', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ old_name: oldName, new_name: newName })
+            });
+            var d = await r.json();
+            if (d.ok) {
+                document.getElementById('tag-rename-msg').textContent = '已重命名，影响 ' + d.changed + ' 张图片';
+                document.getElementById('tag-rename-msg').style.color = '#065f46';
+                document.getElementById('tag-rename-new').value = '';
+                // 刷新下拉列表
+                var r2 = await fetch('/api/image/tags'); var d2 = await r2.json();
+                document.getElementById('tag-rename-old').innerHTML = (d2.tags || []).map(function(t) {
+                    return '<option value="' + t.name.replace(/"/g, '&quot;') + '">' + t.name + ' (' + t.count + ' 张)</option>';
+                }).join('');
+            } else {
+                document.getElementById('tag-rename-msg').textContent = d.msg;
+                document.getElementById('tag-rename-msg').style.color = '#b91c1c';
+            }
+            loadTagCloud();
+            loadTagGallery(document.getElementById('tag-filter-input').value);
+        } catch(e) { document.getElementById('tag-rename-msg').textContent = '操作失败'; }
+    }
+
+    async function doDeleteTag() {
+        var tagName = document.getElementById('tag-delete-name').value;
+        if (!tagName) { document.getElementById('tag-delete-msg').textContent = '请选择要删除的标签'; return; }
+        if (!confirm('确定删除标签 "' + tagName + '" 吗？将从所有图片中移除，不可恢复。')) return;
+        try {
+            var r = await fetch('/api/image/tag/' + encodeURIComponent(tagName), { method: 'DELETE' });
+            var d = await r.json();
+            if (d.ok) {
+                document.getElementById('tag-delete-msg').textContent = '已删除，从 ' + d.removed_from + ' 张图片中移除';
+                document.getElementById('tag-delete-msg').style.color = '#065f46';
+                // 刷新下拉列表
+                var r2 = await fetch('/api/image/tags'); var d2 = await r2.json();
+                document.getElementById('tag-delete-name').innerHTML = (d2.tags || []).map(function(t) {
+                    return '<option value="' + t.name.replace(/"/g, '&quot;') + '">' + t.name + ' (' + t.count + ' 张)</option>';
+                }).join('');
+            }
+            loadTagCloud();
+            loadTagGallery(document.getElementById('tag-filter-input').value);
+        } catch(e) { document.getElementById('tag-delete-msg').textContent = '操作失败'; }
+    }
+
+    // ========== 打包下载 ==========
+    async function handleZipDownload() {
+        var checks = document.querySelectorAll('.gallery-check:checked');
+        if (checks.length === 0) { showToast('请先勾选要下载的图片', 'warn'); return; }
+        var uids = Array.from(checks).map(function(c) { return c.dataset.uid; });
+        try {
+            var r = await fetch('/api/image/download-zip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uids: uids }) });
+            if (r.ok) {
+                var blob = await r.blob();
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a'); a.href = url; a.download = 'images_' + uids.length + '.zip';
+                document.body.appendChild(a); a.click(); a.remove();
+                URL.revokeObjectURL(url);
+                showToast('已下载 ' + uids.length + ' 张图片的压缩包', 'ok');
+            } else {
+                var d = await r.json(); showToast(d.msg || '下载失败', 'warn');
+            }
+        } catch(e) { showToast('下载失败', 'warn'); }
+    }
+
+    // ========== 占用统计 ==========
+    async function loadImageStats() {
+        var c = document.getElementById('img-stats-content');
+        try {
+            var r = await fetch('/api/image/stats'); var d = await r.json();
+            if (!d.ok) { c.innerHTML = '加载失败'; return; }
+            var extHTML = '';
+            var extCount = d.ext_count || {};
+            for (var ext in extCount) {
+                if (extCount.hasOwnProperty(ext)) {
+                    extHTML += '<div class="stat-row"><span>.' + ext + '</span><span>' + extCount[ext] + ' 张</span></div>';
+                }
+            }
+            c.innerHTML = '<div class="stats-grid">' +
+                '<div class="stats-num-card"><div class="stats-big">' + d.total_count + '</div><div class="stats-label">图片总数</div></div>' +
+                '<div class="stats-num-card"><div class="stats-big">' + d.total_size_mb + ' MB</div><div class="stats-label">总大小</div></div>' +
+                '<div class="stats-num-card"><div class="stats-big">' + (d.total_count > 0 ? (d.total_size / 1024 / d.total_count).toFixed(1) : '0') + ' KB</div><div class="stats-label">平均大小</div></div>' +
+                '</div>' +
+                '<div class="stats-ext-list"><h4 style="margin-bottom:8px">格式分布</h4>' + extHTML + '</div>';
+            if (d.total_count === 0) c.innerHTML = '<p class="text-muted" style="text-align:center;padding:32px">暂无图片数据</p>';
+        } catch(e) { c.innerHTML = '加载失败'; }
+    }
+
+    // ==================== 文字模块 ====================
+    var currentTextUid = null;
+
+    function showTextPanel(type) {
+        hideAllTextPanels();
+        var entries = document.querySelector('#panel-text .text-entries');
+        var saved = document.querySelector('#panel-text .text-saved');
+        if (entries) entries.style.display = 'none';
+        if (saved) saved.style.display = 'none';
+        var panelId = 'text-' + type + '-panel';
+        var panel = document.getElementById(panelId);
+        if (panel) panel.style.display = 'block';
+    }
+
+    function hideAllTextPanels() {
+        document.querySelectorAll('#panel-text .text-work-panel').forEach(function(p) { p.style.display = 'none'; });
+        var entries = document.querySelector('#panel-text .text-entries');
+        var saved = document.querySelector('#panel-text .text-saved');
+        if (entries) entries.style.display = '';
+        if (saved) saved.style.display = '';
+        loadTextList();
+    }
+
+    async function handleUpload() {
+        var file = document.getElementById('file-input').files[0];
+        if (!file) return;
+        var s = document.getElementById('upload-status');
+        s.innerHTML = '<span class="search-status-bar status-loading" style="display:block">⏳ 正在上传分析...</span>';
+        try {
+            var fd = new FormData();
+            fd.append('file', file);
+            var resp = await fetch('/api/text/upload', { method: 'POST', body: fd });
+            var data = await resp.json();
+            if (data.ok) {
+                s.innerHTML = '<span class="search-status-bar status-local" style="display:block">✅ 上传成功！</span>';
+                setTimeout(function() { openViewer(data.uid, file.name); }, 400);
+            } else {
+                s.innerHTML = '<span class="search-status-bar status-remote" style="display:block">❌ ' + data.msg + '</span>';
+            }
+        } catch(e) {
+            s.innerHTML = '<span class="search-status-bar status-remote" style="display:block">❌ 上传失败</span>';
+        }
+    }
+
+    async function handlePaste() {
+        var title = document.getElementById('paste-title').value.trim() || '未命名粘贴';
+        var content = document.getElementById('paste-content').value;
+        if (!content.trim()) return;
+        var s = document.getElementById('paste-status');
+        s.innerHTML = '<span class="search-status-bar status-loading" style="display:block">⏳ 正在处理...</span>';
+        try {
+            var resp = await fetch('/api/text/paste', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: title, content: content })
+            });
+            var data = await resp.json();
+            if (data.ok) {
+                s.innerHTML = '<span class="search-status-bar status-local" style="display:block">✅ 已保存！</span>';
+                setTimeout(function() { openViewer(data.uid, title); }, 400);
+            } else {
+                s.innerHTML = '<span class="search-status-bar status-remote" style="display:block">❌ ' + data.msg + '</span>';
+            }
+        } catch(e) {
+            s.innerHTML = '<span class="search-status-bar status-remote" style="display:block">❌ 提交失败</span>';
+        }
+    }
+
+    async function handleFetch() {
+        var url = document.getElementById('fetch-url').value.trim();
+        if (!url) return;
+        var s = document.getElementById('fetch-status');
+        s.innerHTML = '<span class="search-status-bar status-loading" style="display:block">⏳ 正在抓取网页...</span>';
+        try {
+            var resp = await fetch('/api/text/fetch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url })
+            });
+            var data = await resp.json();
+            if (data.ok) {
+                s.innerHTML = '<span class="search-status-bar status-local" style="display:block">✅ 抓取成功！共 ' + data.lines + ' 行文本</span>';
+                setTimeout(function() { openViewer(data.uid, data.filename); }, 400);
+            } else {
+                s.innerHTML = '<span class="search-status-bar status-remote" style="display:block">❌ ' + data.msg + '</span>';
+            }
+        } catch(e) {
+            s.innerHTML = '<span class="search-status-bar status-remote" style="display:block">❌ 抓取失败</span>';
+        }
+    }
+
+    async function openViewer(uid, title) {
+        currentTextUid = uid;
+        hideAllTextPanels();
+        var entries = document.querySelector('#panel-text .text-entries');
+        var saved = document.querySelector('#panel-text .text-saved');
+        if (entries) entries.style.display = 'none';
+        if (saved) saved.style.display = 'none';
+        document.getElementById('text-viewer').style.display = 'block';
+        document.getElementById('viewer-title').textContent = '📄 ' + title;
+        document.getElementById('text-search-input').value = '';
+        document.getElementById('text-search-info').style.display = 'none';
+
+        var disp = document.getElementById('text-content-display');
+        disp.textContent = '加载中...';
+        try {
+            var resp = await fetch('/api/text/view/' + uid);
+            var data = await resp.json();
+            if (data.ok) {
+                disp.textContent = data.content;
+                disp.parentElement.scrollTop = 0;
+            } else {
+                disp.textContent = '加载失败';
+            }
+        } catch(e) {
+            disp.textContent = '加载失败';
+        }
+        document.getElementById('btn-delete-text').dataset.uid = uid;
+    }
+
+    async function doTextSearch() {
+        if (!currentTextUid) return;
+        var keyword = document.getElementById('text-search-input').value.trim();
+        var infoEl = document.getElementById('text-search-info');
+        var disp = document.getElementById('text-content-display');
+        var wholeWord = document.getElementById('whole-word-check').checked ? '1' : '0';
+        var smartPunct = document.getElementById('smart-punct-check').checked ? '1' : '0';
+
+        if (!keyword) {
+            infoEl.style.display = 'none';
+            var resp = await fetch('/api/text/view/' + currentTextUid);
+            var data = await resp.json();
+            if (data.ok) disp.textContent = data.content;
+            return;
+        }
+
+        try {
+            var resp = await fetch('/api/text/search/' + currentTextUid + '?q=' + encodeURIComponent(keyword) + '&whole_word=' + wholeWord + '&smart_punct=' + smartPunct);
+            var data = await resp.json();
+            if (data.ok) {
+                disp.innerHTML = data.html;
+                infoEl.style.display = 'block';
+                infoEl.className = 'search-status-bar status-local';
+                var isEnglish = /[a-zA-Z]/.test(keyword);
+                var modeText = (wholeWord === '1' && isEnglish) ? '（英文全词）' : '';
+                var smartText = smartPunct === '1' ? '（智能标点）' : '';
+                infoEl.innerHTML = '🔍 "<strong>' + keyword + '</strong>" 共出现 <strong>' + data.count + '</strong> 次 ' + modeText + smartText;
+            }
+        } catch(e) {
+            infoEl.style.display = 'none';
+        }
+    }
+
+    async function handleDeleteText() {
+        var uid = document.getElementById('btn-delete-text').dataset.uid;
+        if (!uid || !confirm('确定删除这段文本吗？')) return;
+        await fetch('/api/text/delete/' + uid, { method: 'POST' });
+        hideAllTextPanels();
+    }
+
+    async function handleDeleteFromList(uid, filename) {
+        if (!confirm('确定删除「' + filename + '」吗？')) return;
+        await fetch('/api/text/delete/' + uid, { method: 'POST' });
+        if (currentTextUid === uid) hideAllTextPanels();
+        loadTextList();
+    }
+
+    async function loadTextList() {
+        var container = document.getElementById('text-list');
+        try {
+            var resp = await fetch('/api/text/list');
+            var data = await resp.json();
+            if (!data.items || data.items.length === 0) {
+                container.innerHTML = '<p class="text-muted" style="text-align:center;padding:16px">暂无已存储的文本</p>';
+                return;
+            }
+            container.innerHTML = data.items.map(function(it) {
+                return '<div class="text-list-item">' +
+                    '<span class="text-list-name" onclick="openViewer(\'' + it.uid + '\', \'' + it.filename.replace(/'/g, "\\'") + '\')">📄 ' + it.filename + '</span>' +
+                    '<div class="text-list-right">' +
+                    '<span class="text-list-meta">' + it.lines + ' 行 · ' + (it.size / 1024).toFixed(1) + ' KB</span>' +
+                    '<button class="btn btn-xs btn-danger" onclick="event.stopPropagation();handleDeleteFromList(\'' + it.uid + '\', \'' + it.filename.replace(/'/g, "\\'") + '\')">🗑</button>' +
+                    '</div></div>';
+            }).join('');
+        } catch(e) {
+            container.innerHTML = '<p class="text-muted" style="text-align:center;padding:16px">加载失败</p>';
+        }
+    }
+
+    // 文字搜索回车
+    var searchInput = document.getElementById('text-search-input');
+    if (searchInput) {
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') doTextSearch();
+        });
+    }
+
+    // 初始加载文字列表
+    loadTextList();
+    </script>
+</body>
+</html>

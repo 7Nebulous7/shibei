@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人中心 - 拾贝</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1 class="logo"><a href="/">🐚 拾贝</a></h1>
+            <nav class="nav">
+                <a href="/" class="nav-link">首页</a>
+                {% if session.role == 'admin' %}
+                <a href="/admin" class="nav-link">🔧 管理后台</a>
+                {% endif %}
+                <a href="/logout" class="nav-link nav-logout">{{ session.user }} · 退出</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container profile-page">
+        <h2 class="page-title">👤 个人中心</h2>
+
+        <div class="profile-grid">
+            <!-- 账号信息 -->
+            <div class="profile-card">
+                <h3>账号信息</h3>
+                <div class="profile-info">
+                    {% if user %}
+                    <div class="info-row">
+                        <span class="info-label">用户名</span>
+                        <span class="info-value">{{ user.username }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">角色</span>
+                        <span class="info-value">
+                            <span class="role-badge {{ 'role-admin' if user.role == 'admin' else 'role-user' }}">
+                                {{ '管理员' if user.role == 'admin' else '普通用户' }}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">注册时间</span>
+                        <span class="info-value">{{ user.created_at }}</span>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">用户信息加载失败，请重新登录</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 修改密码 -->
+            <div class="profile-card">
+                <h3>🔒 修改密码</h3>
+
+                {% if msg %}
+                <div class="profile-msg profile-msg-ok">{{ msg }}</div>
+                {% endif %}
+                {% if error %}
+                <div class="profile-msg profile-msg-err">{{ error }}</div>
+                {% endif %}
+
+                <form method="post" class="profile-form">
+                    <div class="form-group">
+                        <label>当前密码</label>
+                        <input
+                            type="password"
+                            name="old_password"
+                            class="form-input"
+                            placeholder="输入当前密码"
+                            required
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label>新密码</label>
+                        <input
+                            type="password"
+                            name="new_password"
+                            class="form-input"
+                            placeholder="输入新密码（至少4位）"
+                            required
+                            minlength="4"
+                        >
+                    </div>
+                    <button type="submit" class="btn btn-primary">确认修改</button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>拾贝 v1.0 · 在信息海洋中拾取精华</p>
+    </footer>
+</body>
+</html>

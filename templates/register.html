@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 - 拾贝</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-body">
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-icon">🐚</div>
+                <h1>注册账号</h1>
+                <p class="login-subtitle">提交申请，等待管理员审批</p>
+            </div>
+
+            {% if success %}
+            <div class="login-error" style="background:var(--green-light);border-color:#a7f3d0;color:#065f46">
+                ✅ {{ success }}
+            </div>
+            <p style="text-align:center;margin-top:16px">
+                <a href="/login" style="color:var(--primary);font-weight:500">返回登录</a>
+            </p>
+            {% else %}
+            <form method="post" class="login-form" onsubmit="return validateForm()">
+                {% if error %}
+                <div class="login-error">
+                    <span class="error-icon">⚠️</span> {{ error }}
+                </div>
+                {% endif %}
+
+                <div class="form-group">
+                    <label for="username">
+                        <span class="label-icon">👤</span> 用户名
+                    </label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        class="form-input"
+                        placeholder="请输入用户名"
+                        required
+                        autofocus
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">
+                        <span class="label-icon">🔒</span> 密码（至少4位）
+                    </label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        class="form-input"
+                        placeholder="请设置密码"
+                        required
+                        minlength="4"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_password">
+                        <span class="label-icon">🔒</span> 确认密码
+                    </label>
+                    <input
+                        type="password"
+                        id="confirm_password"
+                        name="confirm_password"
+                        class="form-input"
+                        placeholder="请再次输入密码"
+                        required
+                        minlength="4"
+                    >
+                </div>
+
+                <button type="submit" class="btn-login">提 交 申 请</button>
+            </form>
+            {% endif %}
+
+            <p class="login-footer">
+                <a href="/login" style="color:var(--text-secondary)">已有账号？返回登录</a>
+            </p>
+        </div>
+    </div>
+
+    <div class="login-bg-decor">
+        <div class="decor-circle decor-c1"></div>
+        <div class="decor-circle decor-c2"></div>
+        <div class="decor-circle decor-c3"></div>
+    </div>
+
+    <script>
+    function validateForm() {
+        var p = document.getElementById('password').value;
+        var cp = document.getElementById('confirm_password').value;
+        if (p !== cp) {
+            alert('两次输入的密码不一致');
+            return false;
+        }
+        if (p.length < 4) {
+            alert('密码至少4位');
+            return false;
+        }
+        return true;
+    }
+    </script>
+</body>
+</html>

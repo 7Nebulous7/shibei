@@ -1,0 +1,25 @@
+# 拾贝 — 数据文件（不上传）
+data/
+*.db
+tags.json
+
+# 旧爬虫代码
+crawlers/
+
+# 旧模板
+templates/stats.html
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

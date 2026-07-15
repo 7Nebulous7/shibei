@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 拾贝</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-body">
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-icon">🐚</div>
+                <h1>拾贝</h1>
+                <p class="login-subtitle">收集 · 筛选 · 整理</p>
+            </div>
+
+            <form method="post" class="login-form">
+                {% if error %}
+                <div class="login-error">
+                    <span class="error-icon">⚠️</span> {{ error }}
+                </div>
+                {% endif %}
+
+                <div class="form-group">
+                    <label for="username">
+                        <span class="label-icon">👤</span> 账号
+                    </label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        class="form-input"
+                        placeholder="请输入账号"
+                        required
+                        autofocus
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">
+                        <span class="label-icon">🔒</span> 密码
+                    </label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        class="form-input"
+                        placeholder="请输入密码"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="btn-login">登 录</button>
+            </form>
+
+            <p class="login-footer">
+                还没有账号？
+                <a href="/register" style="color:var(--primary);font-weight:500">点此注册</a>
+            </p>
+            <p class="login-footer">拾贝 v1.0 · 在信息海洋中拾取精华</p>
+        </div>
+    </div>
+
+    <!-- 背景装饰 -->
+    <div class="login-bg-decor">
+        <div class="decor-circle decor-c1"></div>
+        <div class="decor-circle decor-c2"></div>
+        <div class="decor-circle decor-c3"></div>
+    </div>
+</body>
+</html>
