@@ -6,6 +6,7 @@
 """
 
 import sys
+import os
 import io
 import json
 import re
@@ -37,7 +38,7 @@ except ImportError:
 #  初始化
 # ============================================================
 app = Flask(__name__)
-app.secret_key = "movie-crawler-secret-key-2024-change-in-production"
+app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24).hex())
 
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
