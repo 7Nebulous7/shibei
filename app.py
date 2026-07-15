@@ -38,9 +38,20 @@ except ImportError:
 #  初始化
 # ============================================================
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24).hex())
 
 BASE_DIR = Path(__file__).parent
+
+# 生成/读取持久化密钥（本地开发用，生产环境用环境变量 SECRET_KEY）
+_SECRET_FILE = BASE_DIR / ".secret_key"
+_env_key = os.environ.get("SECRET_KEY")
+if _env_key:
+    app.secret_key = _env_key
+elif _SECRET_FILE.exists():
+    app.secret_key = _SECRET_FILE.read_text(encoding="utf-8").strip()
+else:
+    _key = os.urandom(24).hex()
+    _SECRET_FILE.write_text(_key, encoding="utf-8")
+    app.secret_key = _key
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 TEXT_DIR = DATA_DIR / "texts"
